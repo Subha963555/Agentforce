@@ -1,13 +1,15 @@
+require('dotenv').config();  // <-- Load env variables
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // MongoDB connection
-const uri = 'mongodb+srv://bossubhadip19:bBX7qw4wnzFdm5PS@cluster0.vi2bmr3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
 // Middleware
@@ -43,6 +45,7 @@ app.post('/accounts', async (req, res) => {
     const result = await accounts.insertOne(accountData);
     res.json({ insertedId: result.insertedId });
 });
+
 // INSERT via GET with URL query parameters
 app.get('/insertAccount', async (req, res) => {
     const { accountName, accountEmail, phone } = req.query;
