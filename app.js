@@ -25,6 +25,34 @@ const database = client.db('accountDB');
 const accounts = database.collection('account');
 
 // Routes
+// PUT update account by Salesforce Id via URL params
+app.put('/updateAccount', async (req, res) => {
+    const sfAccountId = req.query.sfId;
+    const accountName = req.query.accountName;
+    const accountEmail = req.query.accountEmail;
+    const phone = req.query.phone;
+
+    if (!sfAccountId) {
+        return res.status(400).send('Missing Salesforce Id (sfId)');
+    }
+
+    const updatedData = {
+        ...(accountName && { accountName }),
+        ...(accountEmail && { accountEmail }),
+        ...(phone && { phone })
+    };
+
+    const result = await accounts.updateOne(
+        { sfAccountId: sfAccountId },
+        { $set: updatedData }
+    );
+
+    if (result.matchedCount === 0) {
+        return res.status(404).send('No record found with this Salesforce Id');
+    }
+
+    res.json({ modifiedCount: result.modifiedCount });
+});
 
 // GET all accounts
 app.get('/accounts', async (req, res) => {
