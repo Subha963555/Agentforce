@@ -76,13 +76,14 @@ app.post('/accounts', async (req, res) => {
 
 // INSERT via GET with URL query parameters
 app.get('/insertAccount', async (req, res) => {
-    const { accountName, accountEmail, phone } = req.query;
+    const { sfAccountId, accountName, accountEmail, phone } = req.query;
 
-    if (!accountName || !accountEmail || !phone) {
+    if (!sfAccountId || !accountName || !accountEmail || !phone) {
         return res.status(400).send('Missing required fields');
     }
 
     const accountDocument = {
+        sfAccountId,
         accountName,
         accountEmail,
         phone
