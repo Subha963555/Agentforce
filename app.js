@@ -25,6 +25,7 @@ const database = client.db('accountDB');
 const accounts = database.collection('account');
 
 // Routes
+
 // PUT update account by Salesforce Id via URL params
 app.put('/updateAccount', async (req, res) => {
     const sfAccountId = req.query.sfId;
@@ -67,14 +68,26 @@ app.get('/accounts/:id', async (req, res) => {
     res.json(account);
 });
 
-// POST create new account
+// POST create new account (corrected to accept sfAccountId)
 app.post('/accounts', async (req, res) => {
-    const accountData = req.body;
-    const result = await accounts.insertOne(accountData);
+    const { sfAccountId, accountName, accountEmail, phone } = req.body;
+
+    if (!accountName || !accountEmail || !phone) {
+        return res.status(400).send('Missing required fields: accountName, accountEmail, or phone');
+    }
+
+    const accountDocument = {
+        ...(sfAccountId && { sfAccountId }),
+        accountName,
+        accountEmail,
+        phone
+    };
+
+    const result = await accounts.insertOne(accountDocument);
     res.json({ insertedId: result.insertedId });
 });
 
-// INSERT via GET with URL query parameters
+// INSERT or UPDATE via GET with URL query parameters (upsert)
 app.get('/insertAccount', async (req, res) => {
     const { sfAccountId, accountName, accountEmail, phone } = req.query;
 
@@ -89,7 +102,6 @@ app.get('/insertAccount', async (req, res) => {
         phone
     };
 
-    // Use upsert: true
     const result = await accounts.updateOne(
         { sfAccountId: sfAccountId },
         { $set: accountDocument },
@@ -105,8 +117,7 @@ app.get('/insertAccount', async (req, res) => {
     }
 });
 
-
-// PUT update account by id
+// PUT update account by MongoDB _id
 app.put('/accounts/:id', async (req, res) => {
     const id = req.params.id;
     const updatedData = req.body;
