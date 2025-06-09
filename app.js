@@ -1,4 +1,4 @@
-require('dotenv').config();  // <-- Load env variables
+require('dotenv').config();  // Load environment variables
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -8,11 +8,10 @@ const { MongoClient, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// MongoDB connection
+// MongoDB connection URI from environment variable
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 
-// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -24,9 +23,7 @@ async function connectDB() {
 const database = client.db('accountDB');
 const accounts = database.collection('account');
 
-// Routes
-
-// PUT update account by Salesforce Id via URL params
+// PUT update account by Salesforce Id via URL query parameters
 app.put('/updateAccount', async (req, res) => {
     const sfAccountId = req.query.sfId;
     const accountName = req.query.accountName;
@@ -43,32 +40,50 @@ app.put('/updateAccount', async (req, res) => {
         ...(phone && { phone })
     };
 
-    const result = await accounts.updateOne(
-        { sfAccountId: sfAccountId },
-        { $set: updatedData }
-    );
+    try {
+        const result = await accounts.updateOne(
+            { sfAccountId: sfAccountId },
+            { $set: updatedData }
+        );
 
-    if (result.matchedCount === 0) {
-        return res.status(404).send('No record found with this Salesforce Id');
+        if (result.matchedCount === 0) {
+            return res.status(404).send('No record found with this Salesforce Id');
+        }
+
+        res.json({ modifiedCount: result.modifiedCount });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error updating account');
     }
-
-    res.json({ modifiedCount: result.modifiedCount });
 });
 
 // GET all accounts
 app.get('/accounts', async (req, res) => {
-    const allAccounts = await accounts.find().toArray();
-    res.json(allAccounts);
+    try {
+        const allAccounts = await accounts.find().toArray();
+        res.json(allAccounts);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error fetching accounts');
+    }
 });
 
-// GET single account by id
+// GET single account by MongoDB _id
 app.get('/accounts/:id', async (req, res) => {
-    const id = req.params.id;
-    const account = await accounts.findOne({ _id: new ObjectId(id) });
-    res.json(account);
+    try {
+        const id = req.params.id;
+        const account = await accounts.findOne({ _id: new ObjectId(id) });
+        if (!account) {
+            return res.status(404).send('Account not found');
+        }
+        res.json(account);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error fetching account');
+    }
 });
 
-// POST create new account (corrected to accept sfAccountId)
+// POST create new account - requires accountName, accountEmail, phone, optional sfAccountId
 app.post('/accounts', async (req, res) => {
     const { sfAccountId, accountName, accountEmail, phone } = req.body;
 
@@ -83,11 +98,16 @@ app.post('/accounts', async (req, res) => {
         phone
     };
 
-    const result = await accounts.insertOne(accountDocument);
-    res.json({ insertedId: result.insertedId });
+    try {
+        const result = await accounts.insertOne(accountDocument);
+        res.json({ insertedId: result.insertedId });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error inserting account');
+    }
 });
 
-// INSERT or UPDATE via GET with URL query parameters (upsert)
+// Upsert account by Salesforce Id via GET query params (called by Apex)
 app.get('/insertAccount', async (req, res) => {
     const { sfAccountId, accountName, accountEmail, phone } = req.query;
 
@@ -102,18 +122,23 @@ app.get('/insertAccount', async (req, res) => {
         phone
     };
 
-    const result = await accounts.updateOne(
-        { sfAccountId: sfAccountId },
-        { $set: accountDocument },
-        { upsert: true }
-    );
+    try {
+        const result = await accounts.updateOne(
+            { sfAccountId: sfAccountId },
+            { $set: accountDocument },
+            { upsert: true }
+        );
 
-    if (result.upsertedCount > 0) {
-        res.send(`Inserted new account with SF ID: ${sfAccountId}`);
-    } else if (result.modifiedCount > 0) {
-        res.send(`Updated existing account with SF ID: ${sfAccountId}`);
-    } else {
-        res.send(`No changes made for account with SF ID: ${sfAccountId}`);
+        if (result.upsertedCount > 0) {
+            res.send(`Inserted new account with SF ID: ${sfAccountId}`);
+        } else if (result.modifiedCount > 0) {
+            res.send(`Updated existing account with SF ID: ${sfAccountId}`);
+        } else {
+            res.send(`No changes made for account with SF ID: ${sfAccountId}`);
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error upserting account');
     }
 });
 
@@ -122,15 +147,19 @@ app.put('/accounts/:id', async (req, res) => {
     const id = req.params.id;
     const updatedData = req.body;
 
-    const result = await accounts.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updatedData }
-    );
-
-    res.json({ modifiedCount: result.modifiedCount });
+    try {
+        const result = await accounts.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updatedData }
+        );
+        res.json({ modifiedCount: result.modifiedCount });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error updating account');
+    }
 });
 
-// Start server
+// Start server and connect to DB
 app.listen(port, async () => {
     await connectDB();
     console.log(`Server running on http://localhost:${port}`);
