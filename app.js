@@ -89,9 +89,22 @@ app.get('/insertAccount', async (req, res) => {
         phone
     };
 
-    const result = await accounts.insertOne(accountDocument);
-    res.send(`Inserted account with ID: ${result.insertedId}`);
+    // Use upsert: true
+    const result = await accounts.updateOne(
+        { sfAccountId: sfAccountId },
+        { $set: accountDocument },
+        { upsert: true }
+    );
+
+    if (result.upsertedCount > 0) {
+        res.send(`Inserted new account with SF ID: ${sfAccountId}`);
+    } else if (result.modifiedCount > 0) {
+        res.send(`Updated existing account with SF ID: ${sfAccountId}`);
+    } else {
+        res.send(`No changes made for account with SF ID: ${sfAccountId}`);
+    }
 });
+
 
 // PUT update account by id
 app.put('/accounts/:id', async (req, res) => {
