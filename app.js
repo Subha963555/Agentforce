@@ -107,19 +107,20 @@ app.post('/accounts', async (req, res) => {
     }
 });
 
-// Upsert account by Salesforce Id via GET query params (called by Apex)
-app.get('/insertAccount', async (req, res) => {
-    const { sfAccountId, accountName, accountEmail, phone } = req.query;
+app.post('/insertAccount', async (req, res) => {
+    const { sfAccountId, accountName, accountEmail, phone } = req.body;
+
+    console.log('InsertAccount POST called with body:', req.body);
 
     if (!sfAccountId || !accountName || !accountEmail || !phone) {
-        return res.status(400).send('Missing required fields');
+        return res.status(400).send('Missing required fields: sfAccountId, accountName, accountEmail, or phone');
     }
 
     const accountDocument = {
-        sfAccountId,
-        accountName,
-        accountEmail,
-        phone
+        sfAccountId: String(sfAccountId),
+        accountName: String(accountName),
+        accountEmail: String(accountEmail),
+        phone: String(phone)
     };
 
     try {
@@ -137,7 +138,7 @@ app.get('/insertAccount', async (req, res) => {
             res.send(`No changes made for account with SF ID: ${sfAccountId}`);
         }
     } catch (error) {
-        console.error(error);
+        console.error('Error upserting account:', error);
         res.status(500).send('Error upserting account');
     }
 });
